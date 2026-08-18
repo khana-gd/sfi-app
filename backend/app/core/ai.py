@@ -47,7 +47,7 @@ def detect_distress_semantic(text: str) -> bool:
             f"Message: {text}"
         )
         payload = {
-            "model": "llama-3.1-70b-versatile",
+            "model": "groq/compound-mini",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
@@ -114,7 +114,7 @@ def generate_gemini_response(prompt: str, category: str) -> str:
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama-3.1-70b-versatile",
+            "model": "groq/compound-mini",
             "messages": [
                 {"role": "system", "content": SFI_MENTOR_PROMPT},
                 {"role": "user", "content": prompt}
@@ -171,7 +171,7 @@ def generate_copilot_draft(student_query: str, category: str) -> str:
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama-3.1-70b-versatile",
+            "model": "groq/compound-mini",
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": f"Student query: {student_query}\nCategory: {category}"}
