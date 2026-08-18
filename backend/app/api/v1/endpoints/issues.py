@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.db.models import User, StudentIssue, IssueMessage, StudentProfile, FacultyProfile, Assignment, Submission
 from app.db.schemas import IssueOut, IssueCreate, IssueMessageCreate, IssueMessageOut
 from app.api.dependencies import get_current_user, require_role
-from app.core.ai import detect_distress_semantic, generate_gemini_response, generate_copilot_draft
+from app.core.ai import detect_distress_semantic, generate_gemini_response, generate_copilot_draft, DistressCrisisDetected
 from app.core.notifications import dispatch_notification
 
 router = APIRouter()
@@ -79,15 +79,45 @@ def create_issue(
 
     # Level 1 AI Response generation (if not escalated straight to Level 3)
     if esc_level == 1:
-        ai_reply = generate_gemini_response(issue_in.description, issue_in.category)
-        ai_message = IssueMessage(
-            issue_id=db_issue.id,
-            sender_id=None,  # None denotes AI response
-            content=ai_reply,
-            is_ai_response=True,
-            created_at=datetime.now(timezone.utc)
-        )
-        db.add(ai_message)
+        try:
+            ai_reply = generate_gemini_response(issue_in.description, issue_in.category)
+            ai_message = IssueMessage(
+                issue_id=db_issue.id,
+                sender_id=None,  # None denotes AI response
+                content=ai_reply,
+                is_ai_response=True,
+                created_at=datetime.now(timezone.utc)
+            )
+            db.add(ai_message)
+        except DistressCrisisDetected:
+            # Upgrade to Level 3 dynamically
+            db_issue.escalation_level = 3
+            db_issue.status = "ESCALATED"
+            
+            reassurance_msg = (
+                "KANHA Support System:\n"
+                "We notice you might be going through a difficult time. Please know that you are not alone.\n\n"
+                "We have immediately escalated this ticket to Level 3 for direct faculty intervention. "
+                "AI assistance has been suspended on this thread.\n\n"
+                "If you need immediate help, please contact the SFI Student Care Desk at studentcare@sfi.edu "
+                "or call the Suicide & Crisis Lifeline by dialing 988 (free, confidential, 24/7)."
+            )
+            reassurance_message = IssueMessage(
+                issue_id=db_issue.id,
+                sender_id=None,
+                content=reassurance_msg,
+                is_ai_response=True,
+                created_at=datetime.now(timezone.utc)
+            )
+            db.add(reassurance_message)
+            
+            if fac_user_id:
+                asyncio.run(dispatch_notification(
+                    db=db,
+                    user_id=fac_user_id,
+                    title="Critical Student Doubt Escalated",
+                    content="Crisis detected. Immediate human intervention required."
+                ))
     else:
         # Distress or grading dispute -> Immediate notification dispatch and reassurance message
         if is_crisis:
