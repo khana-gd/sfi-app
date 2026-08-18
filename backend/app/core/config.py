@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-3.6-flash"
     GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"
+    GROQ_API_KEY: Optional[str] = None
 
     # Google Credentials (Optional)
     GOOGLE_CLIENT_ID: Optional[str] = None

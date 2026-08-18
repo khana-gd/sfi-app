@@ -26,13 +26,45 @@ def detect_distress(text: str) -> bool:
     return False
 
 def detect_distress_semantic(text: str) -> bool:
-    """Scan text for emotional crisis indicators using semantic check via Gemini if available,
+    """Scan text for emotional crisis indicators using semantic check via Groq/Gemini if available,
     falling back to keyword matching.
     """
     # Check keywords first (works offline and as fast fallback)
     if detect_distress(text):
         return True
         
+    groq_key = settings.GROQ_API_KEY
+    if groq_key and groq_key != "your_groq_api_key_here":
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        prompt = (
+            "Analyze the following student message and determine if it shows signs of personal/emotional crisis, "
+            "self-harm, severe anxiety, panic, depression, or family emergencies unrelated to the assignment. "
+            "Answer with exactly 'YES' if a crisis/distress is detected, or 'NO' if it is just a standard academic/grading query.\n\n"
+            f"Message: {text}"
+        )
+        payload = {
+            "model": "llama-3.1-70b-versatile",
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.0
+        }
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    ans = result["choices"][0]["message"]["content"].strip().upper()
+                    if "YES" in ans:
+                        return True
+                    return False
+        except Exception as e:
+            logger.warning(f"Semantic distress check via Groq failed: {e}")
+         
     api_key = settings.GEMINI_API_KEY
     model_name = settings.GEMINI_MODEL or "gemini-3.6-flash"
     if not api_key or api_key == "dummy_gemini_key_for_dev":
@@ -70,9 +102,33 @@ Your character traits:
 """
 
 def generate_gemini_response(prompt: str, category: str) -> str:
-    """Generate response using direct Google GenAI REST calls or fallback to mock."""
+    """Generate response using Groq or direct Google GenAI REST calls or fallback to mock."""
     if detect_distress_semantic(prompt):
         raise DistressCrisisDetected("Emotional/personal crisis detected in prompt.")
+
+    groq_key = settings.GROQ_API_KEY
+    if groq_key and groq_key != "your_groq_api_key_here":
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama-3.1-70b-versatile",
+            "messages": [
+                {"role": "system", "content": SFI_MENTOR_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.2
+        }
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.warning(f"Groq API call failed: {e}")
 
     api_key = settings.GEMINI_API_KEY
     model_name = settings.GEMINI_MODEL or "gemini-3.6-flash"
@@ -101,7 +157,36 @@ def generate_gemini_response(prompt: str, category: str) -> str:
         return get_mock_response(prompt, category)
 
 def generate_copilot_draft(student_query: str, category: str) -> str:
-    """Generate a draft answer for the faculty to review and edit."""
+    """Generate a draft answer for the faculty to review and edit using Groq or Gemini."""
+    groq_key = settings.GROQ_API_KEY
+    system_instruction = (
+        "You are KANHA, drafting a reply for an SFI faculty member. "
+        "Create a professional, clear, and comprehensive reply template answering the student's question directly. "
+        "Do not include placeholders. Format in clean Markdown."
+    )
+    if groq_key and groq_key != "your_groq_api_key_here":
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "llama-3.1-70b-versatile",
+            "messages": [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": f"Student query: {student_query}\nCategory: {category}"}
+            ],
+            "temperature": 0.2
+        }
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.warning(f"Groq draft generation failed: {e}")
+
     api_key = settings.GEMINI_API_KEY
     model_name = settings.GEMINI_MODEL or "gemini-3.6-flash"
 
