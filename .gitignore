@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.toast
+.pytest_cache/
+test_kanha.db
+
+# Database files
+*.db
+*.sqlite
+kanha.db
+
+# Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.development
+.env.production
+
+# Logs
+logs/
+backend/logs/
+*.log
+
+# System / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent / Tooling
+.agents/
+/C:/Users/Sudhanva/
+/C:\Users\Sudhanva\

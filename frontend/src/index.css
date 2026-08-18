@@ -1,0 +1,191 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+:root {
+  /* SFI Color Palette */
+  --color-navy-bg: #0B132B;
+  --color-navy-surface: #1C2541;
+  --color-navy-surface-light: #2A365D;
+  --color-gold-primary: #C9A65B;
+  --color-gold-hover: #D8B76B;
+  --color-pink-accent: #E89FB5;
+  --color-pink-hover: #FF8E9E;
+  
+  /* System Colors */
+  --color-text-primary: #F8F9FA;
+  --color-text-secondary: #ADB5BD;
+  --color-text-muted: #6C757D;
+  --color-border: rgba(201, 166, 91, 0.25);
+  --color-border-hover: rgba(201, 166, 91, 0.6);
+  --color-error: #FF6B6B;
+  --color-success: #51CF66;
+  --color-glass-bg: rgba(28, 37, 65, 0.7);
+  --color-glass-border: rgba(201, 166, 91, 0.15);
+
+  /* Fonts */
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s ease;
+}
+
+/* Global Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--color-navy-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Layout Classes */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+  margin-left: 260px; /* Width of the sidebar */
+  transition: margin-left var(--transition-normal);
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: var(--spacing-md);
+  }
+}
+
+/* Reusable Glassmorphism Cards */
+.card-glass {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  transition: border var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card-glass:hover {
+  border-color: var(--color-border-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(11, 19, 43, 0.5);
+}
+
+/* Reusable Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--color-gold-primary);
+  color: var(--color-navy-bg);
+  border: 1px solid var(--color-gold-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-gold-hover);
+  border-color: var(--color-gold-hover);
+  transform: scale(1.02);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-pink-accent);
+  border: 1px solid var(--color-pink-accent);
+}
+
+.btn-secondary:hover {
+  background-color: rgba(232, 159, 181, 0.1);
+  color: var(--color-pink-hover);
+  border-color: var(--color-pink-hover);
+  transform: scale(1.02);
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+}
+
+.btn-text:hover {
+  color: var(--color-text-primary);
+}
+
+/* Form Styling */
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: rgba(11, 19, 43, 0.6);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  transition: all var(--transition-fast);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--color-pink-accent);
+  box-shadow: 0 0 0 3px rgba(232, 159, 181, 0.2);
+}
