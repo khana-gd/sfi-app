@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { api } from './services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { api, getApiBaseUrl, getWebSocketUrl } from './services/api';
 import type { User, Assignment } from './services/api';
+import { App as CapApp } from '@capacitor/app';
 import { 
   BookOpen, 
   Calendar, 
@@ -56,6 +57,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'CHAT' | 'RESEARCH' | 'STUDIO' | 'PORTFOLIO'>('DASHBOARD');
+  const [netStatus, setNetStatus] = useState<'ONLINE' | 'CONNECTING' | 'RECONNECTING' | 'OFFLINE' | 'SERVER_ERROR'>('ONLINE');
 
   // Chat/WebSocket states
   const [chatMessages, setChatMessages] = useState<Array<{ id?: number; sender_id: number; content: string; created_at: string }>>([]);
@@ -65,6 +67,8 @@ export default function App() {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [chatError, setChatError] = useState('');
   const [wsReadyState, setWsReadyState] = useState<number>(WebSocket.CONNECTING);
+  const reconnectTimeoutRef = useRef<any>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
   // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -486,8 +490,58 @@ export default function App() {
   const handleCompilePortfolio = () => {
     const studentId = selectedPortfolioStudentId || 1; // student 1 default
     const token = api.getToken();
-    window.open(`http://localhost:8000/api/v1/portfolio/export/pdf?student_id=${studentId}&token=${token}`, "_blank");
+    window.open(`${getApiBaseUrl()}/api/v1/portfolio/export/pdf?student_id=${studentId}&token=${token}`, "_blank");
   };
+
+  useEffect(() => {
+    const handleOnline = () => setNetStatus(navigator.onLine ? 'ONLINE' : 'OFFLINE');
+    const handleOffline = () => setNetStatus('OFFLINE');
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    // Initial check
+    setNetStatus(navigator.onLine ? 'ONLINE' : 'OFFLINE');
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Intercept native Android back button press
+    const backButtonListener = CapApp.addListener('backButton', ({ canGoBack }) => {
+      // 1. If modals are open, close them first
+      if (selectedAssignment) {
+        setSelectedAssignment(null);
+        return;
+      }
+      if (selectedSubmission) {
+        setSelectedSubmission(null);
+        setFeedbackSuccess('');
+        return;
+      }
+      if (selectedIssue) {
+        setSelectedIssue(null);
+        return;
+      }
+
+      // 2. If the user is on another tab, return to the DASHBOARD
+      if (activeTab !== 'DASHBOARD') {
+        setActiveTab('DASHBOARD');
+        return;
+      }
+
+      // 3. Otherwise, navigate back in history if possible, or exit the app
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        CapApp.exitApp();
+      }
+    });
+
+    return () => {
+      backButtonListener.then(l => l.remove());
+    };
+  }, [selectedAssignment, selectedSubmission, selectedIssue, activeTab]);
 
   // Analytics handlers & effects
   useEffect(() => {
@@ -525,11 +579,17 @@ export default function App() {
       const ticketRes = await api.request("/auth/ws-ticket", { method: "POST" });
       const ticket = ticketRes.ticket;
 
-      const socket = new WebSocket(`ws://localhost:8000/api/v1/chat/ws?ticket=${ticket}`);
+      const socket = new WebSocket(getWebSocketUrl(ticket));
       
       socket.onopen = () => {
         console.log("WebSocket connected");
         setWsReadyState(WebSocket.OPEN);
+        setNetStatus('ONLINE');
+        reconnectAttemptsRef.current = 0;
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
       };
 
       socket.onmessage = (event) => {
@@ -556,6 +616,7 @@ export default function App() {
       socket.onclose = () => {
         console.log("WebSocket disconnected");
         setWsReadyState(WebSocket.CLOSED);
+        handleReconnect();
       };
 
       socket.onerror = () => {
@@ -566,7 +627,24 @@ export default function App() {
     } catch (err: any) {
       setChatError(`WebSocket error: ${err.message}`);
       setWsReadyState(WebSocket.CLOSED);
+      handleReconnect();
     }
+  };
+
+  const handleReconnect = () => {
+    if (!api.getToken()) return; // Don't reconnect if logged out
+    if (reconnectAttemptsRef.current >= 5) {
+      setNetStatus('SERVER_ERROR');
+      return;
+    }
+    setNetStatus('RECONNECTING');
+    reconnectAttemptsRef.current += 1;
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
+    console.log(`Reconnecting to WebSocket in ${delay}ms... (Attempt ${reconnectAttemptsRef.current}/5)`);
+    if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    reconnectTimeoutRef.current = setTimeout(() => {
+      connectWebSocket();
+    }, delay);
   };
 
   const handleSendChatMessage = (e: React.FormEvent) => {
@@ -699,7 +777,7 @@ export default function App() {
       formData.append("assignment_id", selectedAssignment.id.toString());
       formData.append("submission_text", submissionText);
 
-      const res = await fetch("http://localhost:8000/api/v1/submissions/", {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/submissions/`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${api.getToken()}`
@@ -817,6 +895,30 @@ export default function App() {
         backgroundColor: '#0B132B',
         color: '#F8F9FA'
       }}>
+        {netStatus !== 'ONLINE' && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0,
+            background: netStatus === 'OFFLINE' ? '#e63946' : '#C9A65B',
+            color: '#ffffff',
+            textAlign: 'center',
+            padding: '8px 16px',
+            fontSize: '13px',
+            fontWeight: 600,
+            zIndex: 9999,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertCircle size={16} />
+            {netStatus === 'CONNECTING' && "KANHA is connecting..."}
+            {netStatus === 'RECONNECTING' && "KANHA connection interrupted. Reconnecting..."}
+            {netStatus === 'OFFLINE' && "No internet connection. Please check your network settings."}
+            {netStatus === 'SERVER_ERROR' && "Cannot reach KANHA servers. Please try again later."}
+          </div>
+        )}
         <div style={{ textAlign: 'center' }}>
           <Sparkles style={{ animation: 'spin 2s linear infinite', color: '#C9A65B', width: 40, height: 40, marginBottom: 16 }} />
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }}>Loading KANHA...</h2>
@@ -836,6 +938,30 @@ export default function App() {
         backgroundColor: '#0B132B',
         padding: '24px'
       }}>
+        {netStatus !== 'ONLINE' && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0,
+            background: netStatus === 'OFFLINE' ? '#e63946' : '#C9A65B',
+            color: '#ffffff',
+            textAlign: 'center',
+            padding: '8px 16px',
+            fontSize: '13px',
+            fontWeight: 600,
+            zIndex: 9999,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertCircle size={16} />
+            {netStatus === 'CONNECTING' && "KANHA is connecting..."}
+            {netStatus === 'RECONNECTING' && "KANHA connection interrupted. Reconnecting..."}
+            {netStatus === 'OFFLINE' && "No internet connection. Please check your network settings."}
+            {netStatus === 'SERVER_ERROR' && "Cannot reach KANHA servers. Please try again later."}
+          </div>
+        )}
         <div className="card-glass" style={{ width: '100%', maxWidth: '440px', border: '1px solid var(--color-gold-primary)' }}>
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <div style={{ display: 'inline-flex', padding: '12px', background: 'rgba(201, 166, 91, 0.1)', borderRadius: '50%', marginBottom: '16px' }}>
@@ -900,9 +1026,32 @@ export default function App() {
     );
   }
 
-  // --- APP LAYOUT (Logged In) ---
   return (
     <div className="app-container">
+      {netStatus !== 'ONLINE' && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0,
+          background: netStatus === 'OFFLINE' ? '#e63946' : '#C9A65B',
+          color: '#ffffff',
+          textAlign: 'center',
+          padding: '8px 16px',
+          fontSize: '13px',
+          fontWeight: 600,
+          zIndex: 9999,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <AlertCircle size={16} />
+          {netStatus === 'CONNECTING' && "KANHA is connecting..."}
+          {netStatus === 'RECONNECTING' && "KANHA connection interrupted. Reconnecting..."}
+          {netStatus === 'OFFLINE' && "No internet connection. Please check your network settings."}
+          {netStatus === 'SERVER_ERROR' && "Cannot reach KANHA servers. Please try again later."}
+        </div>
+      )}
       {/* Sidebar Navigation */}
       <aside style={{
         position: 'fixed',
@@ -2133,7 +2282,7 @@ export default function App() {
                         <strong style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>{selectedAssignment.drive_file_name}</strong>
                       </div>
                       <a 
-                        href={`http://localhost:8000/api/v1/google/drive/stream/${selectedAssignment.drive_file_id}`}
+                        href={`${getApiBaseUrl()}/api/v1/google/drive/stream/${selectedAssignment.drive_file_id}`}
                         download
                         className="btn btn-secondary" 
                         style={{ fontSize: '12px', padding: '8px 16px' }}
@@ -2468,7 +2617,7 @@ export default function App() {
                     {selectedSubmission.file_url && (
                       <div style={{ marginTop: '12px' }}>
                         <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--color-text-secondary)', display: 'block' }}>Attached file</span>
-                        <a href={`http://localhost:8000${selectedSubmission.file_url}`} target="_blank" rel="noreferrer" style={{ color: 'var(--color-pink-accent)', fontSize: '13px', textDecoration: 'underline' }}>
+                        <a href={`${getApiBaseUrl()}${selectedSubmission.file_url}`} target="_blank" rel="noreferrer" style={{ color: 'var(--color-pink-accent)', fontSize: '13px', textDecoration: 'underline' }}>
                           View Submission Attachment
                         </a>
                       </div>

@@ -1,4 +1,14 @@
-const API_BASE_URL = "http://localhost:8000/api/v1";
+export const getApiBaseUrl = () => {
+  return import.meta.env.VITE_API_URL || "http://localhost:8000";
+};
+
+export const API_BASE_URL = `${getApiBaseUrl()}/api/v1`;
+
+export const getWebSocketUrl = (ticket: string) => {
+  const base = getApiBaseUrl();
+  const wsBase = base.replace(/^http/, "ws");
+  return `${wsBase}/api/v1/chat/ws?ticket=${ticket}`;
+};
 
 export interface User {
   id: number;
