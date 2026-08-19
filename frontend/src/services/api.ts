@@ -88,6 +88,32 @@ export const api = {
     return data;
   },
 
+  async googleLogin(idToken: string): Promise<{ access_token: string; role: string }> {
+    const data = await this.request("/auth/google", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+
+    this.setToken(data.access_token);
+    return data;
+  },
+
+  async googleMockLogin(emailOrName: string): Promise<{ access_token: string; role: string }> {
+    const data = await this.request("/auth/google-mock", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id_token: emailOrName }),
+    });
+
+    this.setToken(data.access_token);
+    return data;
+  },
+
   async getMe(): Promise<User> {
     const user = await this.request("/auth/me");
     localStorage.setItem("kanha_user", JSON.stringify(user));
@@ -123,6 +149,12 @@ export const api = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+    });
+  },
+
+  async activateUser(userId: number): Promise<User> {
+    return this.request(`/users/${userId}/activate`, {
+      method: "PUT",
     });
   }
 };

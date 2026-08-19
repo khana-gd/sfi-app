@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_REDIRECT_URI: Optional[str] = None
 
+    # App Environment & Settings
+    ENVIRONMENT: str = "production"
+    SFI_EMAIL_DOMAIN: str = "kanha.local"
+
     # SMTP/Email configuration
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: Optional[int] = None

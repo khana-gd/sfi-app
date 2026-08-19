@@ -59,3 +59,18 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
         
     db.commit()
     return user
+
+
+@router.put("/{user_id}/activate", response_model=UserOut, dependencies=[Depends(require_role(["ADMIN"]))])
+def activate_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found."
+        )
+    user.is_active = True
+    db.commit()
+    db.refresh(user)
+    return user
+

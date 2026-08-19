@@ -73,6 +73,9 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [mockGoogleEmail, setMockGoogleEmail] = useState('');
+
 
   // Academic list states
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -165,6 +168,58 @@ export default function App() {
       setLoading(false);
     }
   }, [token]);
+
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  const handleGoogleLoginSuccess = async (response: any) => {
+    setLoginError('');
+    setGoogleLoading(true);
+    try {
+      const data = await api.googleLogin(response.credential);
+      setToken(data.access_token);
+    } catch (err: any) {
+      setLoginError(err.message || 'Google Authentication failed.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token || !GOOGLE_CLIENT_ID) return;
+
+    let buttonRendered = false;
+
+    const initializeGoogleSignIn = () => {
+      if ((window as any).google && GOOGLE_CLIENT_ID) {
+        (window as any).google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleLoginSuccess,
+        });
+
+        const btnParent = document.getElementById("google-signin-btn");
+        if (btnParent && !buttonRendered) {
+          (window as any).google.accounts.id.renderButton(
+            btnParent,
+            { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "rectangular", logo_alignment: "left" }
+          );
+          buttonRendered = true;
+        }
+      }
+    };
+
+    if ((window as any).google) {
+      initializeGoogleSignIn();
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).google) {
+          clearInterval(interval);
+          initializeGoogleSignIn();
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [token, GOOGLE_CLIENT_ID]);
+
 
   useEffect(() => {
     if (activeTab === 'CHAT' && user) {
@@ -705,6 +760,22 @@ export default function App() {
     }
   };
 
+  const handleMockGoogleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mockGoogleEmail.trim()) return;
+    setLoginError('');
+    setGoogleLoading(true);
+    try {
+      const data = await api.googleMockLogin(mockGoogleEmail);
+      setToken(data.access_token);
+    } catch (err: any) {
+      setLoginError(err.message || 'Mock Google login failed.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+
   const handleLogout = () => {
     api.logout();
     setToken(null);
@@ -765,6 +836,16 @@ export default function App() {
       setUsersList(uList);
     } catch (err: any) {
       setCreateUserSuccess(`Error: ${err.message}`);
+    }
+  };
+
+  const handleActivateUser = async (userId: number) => {
+    try {
+      await api.activateUser(userId);
+      const uList = await api.getUsers();
+      setUsersList(uList);
+    } catch (err: any) {
+      alert(`Failed to activate user: ${err.message}`);
     }
   };
 
@@ -999,7 +1080,7 @@ export default function App() {
                 required
               />
             </div>
-            <div className="form-group" style={{ marginBottom: '32px' }}>
+            <div className="form-group" style={{ marginBottom: '24px' }}>
               <label className="form-label">Password</label>
               <input 
                 type="password" 
@@ -1010,10 +1091,83 @@ export default function App() {
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px' }}>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px' }} disabled={googleLoading}>
               Sign In to Studio
             </button>
           </form>
+
+          <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0', color: 'var(--color-text-muted)', fontSize: '12px' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201, 166, 91, 0.15)' }}></div>
+            <span style={{ padding: '0 12px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>or continue with</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201, 166, 91, 0.15)' }}></div>
+          </div>
+
+          {GOOGLE_CLIENT_ID ? (
+            <div id="google-signin-btn" style={{ minHeight: '44px', width: '100%', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}></div>
+          ) : (
+            <div style={{
+              padding: '12px',
+              border: '1px dashed var(--color-gold-primary)',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(201, 166, 91, 0.05)',
+              color: 'var(--color-text-secondary)',
+              fontSize: '12px',
+              textAlign: 'center',
+              marginBottom: '16px'
+            }}>
+              Google Sign-In client ID not configured. Setup <strong>VITE_GOOGLE_CLIENT_ID</strong> in your environment.
+            </div>
+          )}
+
+          {import.meta.env.DEV && (
+            <div style={{
+              marginTop: '24px',
+              padding: '16px',
+              borderRadius: '8px',
+              border: '1px solid rgba(81, 207, 102, 0.25)',
+              backgroundColor: 'rgba(81, 207, 102, 0.05)',
+            }}>
+              <p style={{
+                color: 'var(--color-success)',
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                marginBottom: '8px',
+                textAlign: 'center'
+              }}>
+                Developer Mock Google Bypass
+              </p>
+              <form onSubmit={handleMockGoogleLogin} style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="mock.user@kanha.local"
+                  value={mockGoogleEmail}
+                  onChange={(e) => setMockGoogleEmail(e.target.value)}
+                  style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}
+                  required
+                />
+                <button 
+                  type="submit" 
+                  className="btn btn-secondary" 
+                  style={{ 
+                    padding: '8px 12px', 
+                    fontSize: '13px', 
+                    color: 'var(--color-success)', 
+                    borderColor: 'var(--color-success)',
+                    background: 'transparent'
+                  }}
+                  disabled={googleLoading}
+                >
+                  {googleLoading ? '...' : 'Bypass'}
+                </button>
+              </form>
+              <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '6px', textAlign: 'center' }}>
+                Simulates Google sign-in. Non-matching domains (not ending in kanha.local) will go to pending state.
+              </p>
+            </div>
+          )}
 
           <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
             <p>Seeded accounts password is <strong>KanhaDevPass2026!</strong></p>
@@ -2840,7 +2994,7 @@ export default function App() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {usersList.map(u => (
+                  {usersList.filter(u => u.is_active).map(u => (
                     <div key={u.id} style={{ 
                       background: 'rgba(11, 19, 43, 0.4)', 
                       padding: '12px 16px', 
@@ -2868,6 +3022,43 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              {/* Pending Approvals List */}
+              {usersList.some(u => !u.is_active) && (
+                <div className="card-glass" style={{ border: '1px solid var(--color-gold-primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--color-border)', paddingBottom: '12px' }}>
+                    <AlertTriangle size={20} style={{ color: 'var(--color-gold-primary)' }} />
+                    <h3 style={{ fontSize: '20px' }}>Pending Approvals</h3>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {usersList.filter(u => !u.is_active).map(u => (
+                      <div key={u.id} style={{ 
+                        background: 'rgba(201, 166, 91, 0.05)', 
+                        border: '1px solid rgba(201, 166, 91, 0.2)',
+                        padding: '12px 16px', 
+                        borderRadius: '8px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <div style={{ marginRight: '12px', flex: 1 }}>
+                          <h4 style={{ fontSize: '14px', fontWeight: 600 }}>{u.first_name} {u.last_name}</h4>
+                          <p style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>{u.email}</p>
+                          <span style={{ fontSize: '10px', color: 'var(--color-gold-primary)', fontWeight: 700 }}>{u.role}</span>
+                        </div>
+                        <button 
+                          className="btn btn-primary" 
+                          style={{ padding: '6px 12px', fontSize: '12px' }}
+                          onClick={() => handleActivateUser(u.id)}
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>
