@@ -1,3 +1,12 @@
+---
+title: Kanha Backend
+emoji: 🎓
+colorFrom: indigo
+colorTo: pink
+sdk: docker
+app_port: 7860
+---
+
 # KANHA — AI-Powered Institute Learning & Management Platform
 
 KANHA is an AI-powered academic companion and learning management system tailored for fashion design institutes. It serves as an intelligent coordinator and bridge between students and faculty.
