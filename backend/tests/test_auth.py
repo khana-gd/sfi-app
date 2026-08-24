@@ -71,7 +71,8 @@ def test_admin_approve_pending_user():
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
     # 2. Trigger mock google sign-in with non-matching domain (creates pending user)
-    pending_email = "new-student-pending@gmail.com"
+    import uuid
+    pending_email = f"new-student-pending-{uuid.uuid4()}@gmail.com"
     pending_res = client.post(
         "/api/v1/auth/google-mock",
         json={"id_token": pending_email}

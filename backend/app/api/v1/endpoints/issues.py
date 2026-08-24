@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.post("/", response_model=IssueOut)
-def create_issue(
+async def create_issue(
     issue_in: IssueCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["STUDENT"]))
@@ -112,12 +112,12 @@ def create_issue(
             db.add(reassurance_message)
             
             if fac_user_id:
-                asyncio.run(dispatch_notification(
+                await dispatch_notification(
                     db=db,
                     user_id=fac_user_id,
                     title="Critical Student Doubt Escalated",
                     content="Crisis detected. Immediate human intervention required."
-                ))
+                )
     else:
         # Distress or grading dispute -> Immediate notification dispatch and reassurance message
         if is_crisis:
@@ -140,12 +140,12 @@ def create_issue(
 
         if fac_user_id:
             msg = "Crisis detected. Immediate human intervention required." if is_crisis else "New grading dispute ticket filed."
-            asyncio.run(dispatch_notification(
+            await dispatch_notification(
                 db=db,
                 user_id=fac_user_id,
                 title="Critical Student Doubt Escalated",
                 content=msg
-            ))
+            )
 
     db.commit()
     db.refresh(db_issue)
@@ -254,7 +254,7 @@ def add_message(
 
 
 @router.post("/{id}/escalate", response_model=IssueOut)
-def escalate_issue(
+async def escalate_issue(
     id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["STUDENT"]))
@@ -275,12 +275,12 @@ def escalate_issue(
     # Send Notification to Faculty
     fac_profile = db.query(FacultyProfile).filter(FacultyProfile.id == issue.faculty_id).first()
     if fac_profile:
-        asyncio.run(dispatch_notification(
+        await dispatch_notification(
             db=db,
             user_id=fac_profile.user_id,
             title="Doubt Ticket Escalated to Level 2",
             content="Student Aarav Mehta has escalated their AI tutor ticket for review."
-        ))
+        )
 
     db.commit()
     db.refresh(issue)

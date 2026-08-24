@@ -74,7 +74,13 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [mockGoogleEmail, setMockGoogleEmail] = useState('');
+
+  // Onboarding states
+  const [onboardingCompleted, setOnboardingCompleted] = useState(localStorage.getItem('kanha_onboarding_completed') === 'true');
+  const [onboardingName, setOnboardingName] = useState('');
+  const [onboardingAge, setOnboardingAge] = useState('');
+  const [onboardingBirthday, setOnboardingBirthday] = useState('');
+  const [onboardingError, setOnboardingError] = useState('');
 
 
   // Academic list states
@@ -760,22 +766,6 @@ export default function App() {
     }
   };
 
-  const handleMockGoogleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mockGoogleEmail.trim()) return;
-    setLoginError('');
-    setGoogleLoading(true);
-    try {
-      const data = await api.googleMockLogin(mockGoogleEmail);
-      setToken(data.access_token);
-    } catch (err: any) {
-      setLoginError(err.message || 'Mock Google login failed.');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-
   const handleLogout = () => {
     api.logout();
     setToken(null);
@@ -1008,6 +998,106 @@ export default function App() {
     );
   }
 
+  // --- ONBOARDING PAGE ---
+  if (!onboardingCompleted) {
+    const handleOnboardingSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      setOnboardingError('');
+      if (!onboardingName.trim()) {
+        setOnboardingError('Please enter your name.');
+        return;
+      }
+      if (!onboardingAge.trim() || isNaN(Number(onboardingAge)) || Number(onboardingAge) <= 0) {
+        setOnboardingError('Please enter a valid age.');
+        return;
+      }
+      if (!onboardingBirthday.trim()) {
+        setOnboardingError('Please enter your birthday.');
+        return;
+      }
+      localStorage.setItem('kanha_onboarding_name', onboardingName);
+      localStorage.setItem('kanha_onboarding_age', onboardingAge);
+      localStorage.setItem('kanha_onboarding_birthday', onboardingBirthday);
+      localStorage.setItem('kanha_onboarding_completed', 'true');
+      setOnboardingCompleted(true);
+    };
+
+    return (
+      <div style={{
+        display: 'flex',
+        minHeight: '100vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0B132B',
+        padding: '24px'
+      }}>
+        <div className="card-glass" style={{ width: '100%', maxWidth: '440px', border: '1px solid var(--color-gold-primary)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ display: 'inline-flex', padding: '12px', background: 'rgba(201, 166, 91, 0.1)', borderRadius: '50%', marginBottom: '16px' }}>
+              <Sparkles style={{ color: 'var(--color-gold-primary)', width: 32, height: 32 }} />
+            </div>
+            <h1 style={{ fontSize: '28px', color: 'var(--color-text-primary)', marginBottom: '8px' }}>Welcome to KANHA</h1>
+            <p style={{ color: 'var(--color-pink-accent)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.25em', fontWeight: 700 }}>
+              Set Up Your Profile
+            </p>
+          </div>
+
+          {onboardingError && (
+            <div style={{
+              backgroundColor: 'rgba(255, 107, 107, 0.15)',
+              border: '1px solid var(--color-error)',
+              color: 'var(--color-error)',
+              padding: '12px',
+              borderRadius: '6px',
+              fontSize: '14px',
+              marginBottom: '20px'
+            }}>
+              {onboardingError}
+            </div>
+          )}
+
+          <form onSubmit={handleOnboardingSubmit}>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label">Full Name</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="Enter your name"
+                value={onboardingName}
+                onChange={(e) => setOnboardingName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label className="form-label">Age</label>
+              <input 
+                type="number" 
+                className="form-control" 
+                placeholder="Enter your age"
+                value={onboardingAge}
+                onChange={(e) => setOnboardingAge(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label className="form-label">Birthday</label>
+              <input 
+                type="date" 
+                className="form-control" 
+                value={onboardingBirthday}
+                onChange={(e) => setOnboardingBirthday(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px' }}>
+              Continue
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   // --- LOGIN PAGE ---
   if (!token || !user) {
     return (
@@ -1096,85 +1186,17 @@ export default function App() {
             </button>
           </form>
 
-          <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0', color: 'var(--color-text-muted)', fontSize: '12px' }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201, 166, 91, 0.15)' }}></div>
-            <span style={{ padding: '0 12px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>or continue with</span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201, 166, 91, 0.15)' }}></div>
-          </div>
+          {GOOGLE_CLIENT_ID && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0', color: 'var(--color-text-muted)', fontSize: '12px' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201, 166, 91, 0.15)' }}></div>
+                <span style={{ padding: '0 12px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>or continue with</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201, 166, 91, 0.15)' }}></div>
+              </div>
 
-          {GOOGLE_CLIENT_ID ? (
-            <div id="google-signin-btn" style={{ minHeight: '44px', width: '100%', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}></div>
-          ) : (
-            <div style={{
-              padding: '12px',
-              border: '1px dashed var(--color-gold-primary)',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(201, 166, 91, 0.05)',
-              color: 'var(--color-text-secondary)',
-              fontSize: '12px',
-              textAlign: 'center',
-              marginBottom: '16px'
-            }}>
-              Google Sign-In client ID not configured. Setup <strong>VITE_GOOGLE_CLIENT_ID</strong> in your environment.
-            </div>
+              <div id="google-signin-btn" style={{ minHeight: '44px', width: '100%', display: 'flex', justifyContent: 'center' }}></div>
+            </>
           )}
-
-          {import.meta.env.DEV && (
-            <div style={{
-              marginTop: '24px',
-              padding: '16px',
-              borderRadius: '8px',
-              border: '1px solid rgba(81, 207, 102, 0.25)',
-              backgroundColor: 'rgba(81, 207, 102, 0.05)',
-            }}>
-              <p style={{
-                color: 'var(--color-success)',
-                fontSize: '11px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                marginBottom: '8px',
-                textAlign: 'center'
-              }}>
-                Developer Mock Google Bypass
-              </p>
-              <form onSubmit={handleMockGoogleLogin} style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="mock.user@kanha.local"
-                  value={mockGoogleEmail}
-                  onChange={(e) => setMockGoogleEmail(e.target.value)}
-                  style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}
-                  required
-                />
-                <button 
-                  type="submit" 
-                  className="btn btn-secondary" 
-                  style={{ 
-                    padding: '8px 12px', 
-                    fontSize: '13px', 
-                    color: 'var(--color-success)', 
-                    borderColor: 'var(--color-success)',
-                    background: 'transparent'
-                  }}
-                  disabled={googleLoading}
-                >
-                  {googleLoading ? '...' : 'Bypass'}
-                </button>
-              </form>
-              <p style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '6px', textAlign: 'center' }}>
-                Simulates Google sign-in. Non-matching domains (not ending in kanha.local) will go to pending state.
-              </p>
-            </div>
-          )}
-
-          <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-            <p>Seeded accounts password is <strong>KanhaDevPass2026!</strong></p>
-            <p style={{ marginTop: '8px' }}>
-              student1@kanha.local | faculty@kanha.local | admin@kanha.local
-            </p>
-          </div>
         </div>
       </div>
     );

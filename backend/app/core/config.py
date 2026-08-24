@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-3.6-flash"
     GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"
     GROQ_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_MODEL: str = "google/gemini-2.5-flash:free"
 
     # Google Credentials (Optional)
     GOOGLE_CLIENT_ID: Optional[str] = None

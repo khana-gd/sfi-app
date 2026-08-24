@@ -44,7 +44,7 @@ test.describe('KANHA Academic Flow & Doubt Escalation E2E Tests', () => {
     await page.selectOption('select', 'EXTENSION_REQUEST');
     await page.fill('input[placeholder="What are you stuck on?"]', 'I need more time to buy tools.');
     await page.click('button:has-text("Ask KANHA / Request Faculty Review")');
-    await expect(page.locator('text=Help ticket created!')).toBeVisible();
+    await expect(page.locator('text=Help ticket created!')).toBeVisible({ timeout: 15000 });
 
     // Close modal
     await page.click('text=×');

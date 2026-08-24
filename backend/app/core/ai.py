@@ -26,13 +26,49 @@ def detect_distress(text: str) -> bool:
     return False
 
 def detect_distress_semantic(text: str) -> bool:
-    """Scan text for emotional crisis indicators using semantic check via Groq/Gemini if available,
+    """Scan text for emotional crisis indicators using semantic check via OpenRouter, Groq, or Gemini if available,
     falling back to keyword matching.
     """
     # Check keywords first (works offline and as fast fallback)
     if detect_distress(text):
         return True
-        
+
+    # 1. OpenRouter Integration
+    or_key = settings.OPENROUTER_API_KEY
+    if or_key and or_key != "your_openrouter_api_key_here":
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {or_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:8000",
+            "X-Title": "KANHA AI Platform"
+        }
+        prompt = (
+            "Analyze the following student message and determine if it shows signs of personal/emotional crisis, "
+            "self-harm, severe anxiety, panic, depression, or family emergencies unrelated to the assignment. "
+            "Answer with exactly 'YES' if a crisis/distress is detected, or 'NO' if it is just a standard academic/grading query.\n\n"
+            f"Message: {text}"
+        )
+        payload = {
+            "model": settings.OPENROUTER_MODEL,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.0
+        }
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    ans = result["choices"][0]["message"]["content"].strip().upper()
+                    if "YES" in ans:
+                        return True
+                    return False
+        except Exception as e:
+            logger.warning(f"Semantic distress check via OpenRouter failed: {e}")
+         
+    # 2. Groq Integration
     groq_key = settings.GROQ_API_KEY
     if groq_key and groq_key != "your_groq_api_key_here":
         url = "https://api.groq.com/openai/v1/chat/completions"
@@ -65,6 +101,7 @@ def detect_distress_semantic(text: str) -> bool:
         except Exception as e:
             logger.warning(f"Semantic distress check via Groq failed: {e}")
          
+    # 3. Gemini Integration
     api_key = settings.GEMINI_API_KEY
     model_name = settings.GEMINI_MODEL or "gemini-3.6-flash"
     if not api_key or api_key == "dummy_gemini_key_for_dev":
@@ -102,10 +139,38 @@ Your character traits:
 """
 
 def generate_gemini_response(prompt: str, category: str) -> str:
-    """Generate response using Groq or direct Google GenAI REST calls or fallback to mock."""
+    """Generate response using OpenRouter, Groq, Gemini, or fallback to mock."""
     if detect_distress_semantic(prompt):
         raise DistressCrisisDetected("Emotional/personal crisis detected in prompt.")
 
+    # 1. OpenRouter Integration
+    or_key = settings.OPENROUTER_API_KEY
+    if or_key and or_key != "your_openrouter_api_key_here":
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {or_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:8000",
+            "X-Title": "KANHA AI Platform"
+        }
+        payload = {
+            "model": settings.OPENROUTER_MODEL,
+            "messages": [
+                {"role": "system", "content": SFI_MENTOR_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.2
+        }
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.warning(f"OpenRouter API call failed: {e}")
+
+    # 2. Groq Integration
     groq_key = settings.GROQ_API_KEY
     if groq_key and groq_key != "your_groq_api_key_here":
         url = "https://api.groq.com/openai/v1/chat/completions"
@@ -130,6 +195,7 @@ def generate_gemini_response(prompt: str, category: str) -> str:
         except Exception as e:
             logger.warning(f"Groq API call failed: {e}")
 
+    # 3. Gemini Integration
     api_key = settings.GEMINI_API_KEY
     model_name = settings.GEMINI_MODEL or "gemini-3.6-flash"
 
@@ -157,13 +223,42 @@ def generate_gemini_response(prompt: str, category: str) -> str:
         return get_mock_response(prompt, category)
 
 def generate_copilot_draft(student_query: str, category: str) -> str:
-    """Generate a draft answer for the faculty to review and edit using Groq or Gemini."""
-    groq_key = settings.GROQ_API_KEY
+    """Generate a draft answer for the faculty to review and edit using OpenRouter, Groq or Gemini."""
     system_instruction = (
         "You are KANHA, drafting a reply for an SFI faculty member. "
         "Create a professional, clear, and comprehensive reply template answering the student's question directly. "
         "Do not include placeholders. Format in clean Markdown."
     )
+
+    # 1. OpenRouter Integration
+    or_key = settings.OPENROUTER_API_KEY
+    if or_key and or_key != "your_openrouter_api_key_here":
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {or_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:8000",
+            "X-Title": "KANHA AI Platform"
+        }
+        payload = {
+            "model": settings.OPENROUTER_MODEL,
+            "messages": [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": f"Student query: {student_query}\nCategory: {category}"}
+            ],
+            "temperature": 0.2
+        }
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.warning(f"OpenRouter draft generation failed: {e}")
+
+    # 2. Groq Integration
+    groq_key = settings.GROQ_API_KEY
     if groq_key and groq_key != "your_groq_api_key_here":
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
@@ -187,10 +282,11 @@ def generate_copilot_draft(student_query: str, category: str) -> str:
         except Exception as e:
             logger.warning(f"Groq draft generation failed: {e}")
 
+    # 3. Gemini Integration
     api_key = settings.GEMINI_API_KEY
     model_name = settings.GEMINI_MODEL or "gemini-3.6-flash"
 
-    system_instruction = (
+    system_instruction_gemini = (
         "You are KANHA, drafting a reply for an SFI faculty member. "
         "Create a professional, clear, and comprehensive reply template answering the student's question directly. "
         "Keep it structured and ready for the tutor to edit or send."
@@ -202,7 +298,7 @@ def generate_copilot_draft(student_query: str, category: str) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     payload = {
         "contents": [{"parts": [{"text": f"Draft a response to this query: {student_query}"}]}],
-        "systemInstruction": {"parts": [{"text": system_instruction}]}
+        "systemInstruction": {"parts": [{"text": system_instruction_gemini}]}
     }
 
     try:
