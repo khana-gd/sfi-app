@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     EMAILS_FROM_NAME: str = "KANHA Platform"
 
     # CORS settings
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000", "http://localhost", "capacitor://localhost"]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
